@@ -4,6 +4,12 @@ Package support for FreeBSD
 
 import os
 
+def _check_portmaster():
+
+    if salt.utils.which('portmaster'):
+        return True
+    return False
+
 
 def _check_pkgng():
     '''
@@ -30,7 +36,7 @@ def search(pkg_name):
 
 def __virtual__():
     '''
-    Set the virtual pkg module if the os is Arch
+    Set the virtual pkg module if the os is FreeBSD
     '''
     return 'pkg' if __grains__['os'] == 'FreeBSD' else False
 
@@ -116,7 +122,7 @@ def list_pkgs():
     return ret
 
 
-def install(name, refresh=False, repo='', **kwargs):
+def install(name, refresh=False, repo='', source=False, **kwargs):
     '''
     Install the passed package
 
@@ -130,7 +136,7 @@ def install(name, refresh=False, repo='', **kwargs):
         salt '*' pkg.install <package name>
     '''
     env = ()
-    if _check_pkgng():
+    elif _check_pkgng():
         pkg_command = 'pkg install -y'
         if not refresh:
             pkg_command += ' -L'
@@ -141,7 +147,10 @@ def install(name, refresh=False, repo='', **kwargs):
         if repo:
             env = (('PACKAGEROOT', repo),)
     old = list_pkgs()
-    __salt__['cmd.retcode']('{0} {1}'.format(pkg_command, name), env=env)
+    if source:
+        __salt__['cmd.retcode']('cd `whereis -sq {0}` && make -DBATCH install clean'.format(name))
+    else:   
+        __salt__['cmd.retcode']('{0} {1}'.format(pkg_command, name), env=env)
     new = list_pkgs()
     pkgs = {}
     for npkg in new:
