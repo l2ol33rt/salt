@@ -66,7 +66,7 @@ def __virtual__():
     # Disable on these platforms, specific service modules exist:
     if _sd_booted(__context__):
         return False
-    elif __grains__['os'] in ('Ubuntu', 'Linaro', 'elementary OS'):
+    elif __grains__['os'] in ('Ubuntu', 'Linaro', 'elementary OS', 'Mint'):
         return __virtualname__
     elif __grains__['os'] in ('Debian', 'Raspbian'):
         debian_initctl = '/sbin/initctl'
