@@ -25,21 +25,51 @@ sqs_events.__opts__ = {}
 
 
 @skipIf(NO_MOCK, NO_MOCK_REASON)
+@patch('salt.engines.sqs_events.boto.sqs')
 class EngineSqsEventTestCase(TestCase):
     '''
     Test cases for salt.engine.sqs_events
     '''
+    def sample_msg(self):
+        fake_msg = MagicMock()
+        fake_msg.get_body.return_value = "This is a test message"
+        fake_msg.delete.return_value = True
+        return fake_msg
+
     # 'present' function tests: 1
     @patch('salt.engines.sqs_events.log')
     @patch('time.sleep', return_value=None)
-    def test_no_queue_presenet(self, mock_sleep, mock_logging):
+    def test_no_queue_present(self, mock_sleep, mock_logging, mock_sqs):
         '''
-        Test to ensure the SQS engine starts.
+        Test to ensure the SQS engine logs a warning when queue not present
         '''
         q = None
         q_name = 'mysqs'
         sqs_events._process_queue(q, q_name)
         self.assertTrue(mock_logging.warning.called)
+        self.assertFalse(mock_sqs.queue.Queue().get_messages.called)
+
+    def test_message_fires(self, mock_sqs):
+        msgs = [self.sample_msg(), self.sample_msg()]
+        mock_sqs.queue.Queue().get_messages.return_value = msgs
+        q = mock_sqs.queue.Queue()
+        q_name = 'mysqs'
+        mock_event = MagicMock(return_value=True)
+        with patch.dict(sqs_events.__salt__, {'event.send': mock_event}):
+            sqs_events._process_queue(q, q_name)
+            self.assertTrue(mock_sqs.queue.Queue().get_messages.called)
+            # check each message here
+            self.assertTrue(msgs[0].delete.called)
+
+    def test_master_message_fires(self, mock_sqs):
+        msgs = [self.sample_msg(), self.sample_msg()]
+        mock_sqs.queue.Queue().get_messages.return_value = msgs
+        q = mock_sqs.queue.Queue()
+        q_name = 'mysqs'
+        mock_fire = MagicMock(return_value=True)
+        sqs_events._process_queue(q, q_name, mock_fire)
+        self.assertTrue(mock_sqs.queue.Queue().get_messages.called, len(msgs))
+        self.assertTrue(mock_fire.called, len(msgs))
 
 
 if __name__ == '__main__':
