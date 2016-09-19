@@ -45,7 +45,8 @@ class EngineSqsEventTestCase(TestCase):
         '''
         q = None
         q_name = 'mysqs'
-        sqs_events._process_queue(q, q_name)
+        mock_fire = MagicMock(return_value=True)
+        sqs_events._process_queue(q, q_name, mock_fire)
         self.assertTrue(mock_logging.warning.called)
         self.assertFalse(mock_sqs.queue.Queue().get_messages.called)
 
@@ -55,11 +56,11 @@ class EngineSqsEventTestCase(TestCase):
         q = mock_sqs.queue.Queue()
         q_name = 'mysqs'
         mock_event = MagicMock(return_value=True)
+        mock_fire = MagicMock(return_value=True)
         with patch.dict(sqs_events.__salt__, {'event.send': mock_event}):
-            sqs_events._process_queue(q, q_name)
+            sqs_events._process_queue(q, q_name, mock_fire)
             self.assertTrue(mock_sqs.queue.Queue().get_messages.called)
-            # check each message here
-            self.assertTrue(msgs[0].delete.called)
+            self.assertTrue(all(x.delete.called for x in msgs))
 
     def test_master_message_fires(self, mock_sqs):
         msgs = [self.sample_msg(), self.sample_msg()]

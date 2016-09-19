@@ -123,14 +123,7 @@ def _get_sqs_conn(profile, region=None, key=None, keyid=None):
     return conn
 
 
-def _process_queue(q, q_name, fire_master=None, tag='salt/engine/sqs', owner_acct_id=None):
-    def fire(tag, msg):
-        if fire_master:
-            fire_master(msg, tag)
-        else:
-            __salt__['event.send'](tag, msg)
-    #import ipdb
-    #ipdb.set_trace()
+def _process_queue(q, q_name, fire_master, tag='salt/engine/sqs', owner_acct_id=None):
     if not q:
         log.warning('failure connecting to queue: {0}, '
                     'waiting 10 seconds.'.format(':'.join(filter(None, (str(owner_acct_id), q_name)))))
@@ -138,7 +131,7 @@ def _process_queue(q, q_name, fire_master=None, tag='salt/engine/sqs', owner_acc
     else:
         msgs = q.get_messages(wait_time_seconds=20)
         for msg in msgs:
-            fire(tag, {'message': msg.get_body()})
+            fire_master(tag=tag, data={'message': msg.get_body()})
             msg.delete()
 
 
@@ -152,7 +145,7 @@ def start(queue, profile=None, tag='salt/engine/sqs', owner_acct_id=None):
             __opts__['sock_dir'],
             listen=False).fire_event
     else:
-        fire_master = None
+        fire_master = __salt__['event.send']
 
     sqs = _get_sqs_conn(profile)
     q = None
